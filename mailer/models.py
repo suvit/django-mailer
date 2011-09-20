@@ -6,13 +6,15 @@ from datetime import datetime
 
 from django.core.mail import EmailMessage
 from django.db import models
+from django.utils.translation import ugettext_lazy as _
+
 
 
 PRIORITIES = (
-    ("1", "high"),
-    ("2", "medium"),
-    ("3", "low"),
-    ("4", "deferred"),
+    ('1', _("high")),
+    ('2', _("medium")),
+    ('3', _("low")),
+    ('4', _("deferred")),
 )
 
 
@@ -84,14 +86,22 @@ def db_to_email(data):
 class Message(models.Model):
     
     # The actual data - a pickled EmailMessage
-    message_data = models.TextField()
-    when_added = models.DateTimeField(default=datetime.now)
-    priority = models.CharField(max_length=1, choices=PRIORITIES, default="2")
+    message_data = models.TextField(verbose_name=_("Message body"))
+    when_added = models.DateTimeField(default=datetime.now,
+                                      verbose_name=_("When added"))
+    priority = models.CharField(max_length=1, choices=PRIORITIES, default="2",
+                                verbose_name=_("Priority"))
+
     # @@@ campaign?
     # @@@ content_type?
     
     objects = MessageManager()
-    
+
+    class Meta:
+        verbose_name = _('Message')
+        verbose_name_plural = _('Messages')
+
+        
     def defer(self):
         self.priority = "4"
         self.save()
@@ -182,22 +192,23 @@ class DontSendEntryManager(models.Manager):
 
 class DontSendEntry(models.Model):
     
-    to_address = models.EmailField()
-    when_added = models.DateTimeField()
+    to_address = models.EmailField(verbose_name=_("To address"))
+    when_added = models.DateTimeField(verbose_name=_("When added"))
+
     # @@@ who added?
     # @@@ comment field?
     
     objects = DontSendEntryManager()
     
     class Meta:
-        verbose_name = "don't send entry"
-        verbose_name_plural = "don't send entries"
+        verbose_name = _("don't send entry")
+        verbose_name_plural = _("don't send entries")
 
 
 RESULT_CODES = (
-    ("1", "success"),
-    ("2", "don't send"),
-    ("3", "failure"),
+    ("1", _("success")),
+    ("2", _("don\'t send")),
+    ("3", _("failure")),
     # @@@ other types of failure?
 )
 
@@ -223,17 +234,25 @@ class MessageLogManager(models.Manager):
 class MessageLog(models.Model):
     
     # fields from Message
-    message_data = models.TextField()
-    when_added = models.DateTimeField()
-    priority = models.CharField(max_length=1, choices=PRIORITIES)
+    message_data = models.TextField(verbose_name=_('Message body'))
+    when_added = models.DateTimeField(default=datetime.now,
+                                      verbose_name=_("When added"))
+    priority = models.CharField(max_length=1, choices=PRIORITIES, default="2",
+                                verbose_name=_("Priority"))
     # @@@ campaign?
     
     # additional logging fields
-    when_attempted = models.DateTimeField(default=datetime.now)
-    result = models.CharField(max_length=1, choices=RESULT_CODES)
-    log_message = models.TextField()
+    when_attempted = models.DateTimeField(default=datetime.now,
+                                          verbose_name=_("When attempted"))
+    result = models.CharField(max_length=1, choices=RESULT_CODES,
+                              verbose_name=_("Result"))
+    log_message = models.TextField(verbose_name=_("Log message"))
     
     objects = MessageLogManager()
+
+    class Meta:
+        verbose_name = _("Message Log")
+        verbose_name_plural = _("Messages Log")
     
     @property
     def email(self):

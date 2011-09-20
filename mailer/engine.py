@@ -17,6 +17,8 @@ except ImportError:
 
 from mailer.models import Message, DontSendEntry, MessageLog
 
+logger = logging.getLogger(__name__)
+
 
 # when queue is empty, how long to wait (in seconds) before checking again
 EMPTY_QUEUE_SLEEP = getattr(settings, "MAILER_EMPTY_QUEUE_SLEEP", 30)
@@ -54,16 +56,16 @@ def send_all():
     
     lock = FileLock("send_mail")
     
-    logging.debug("acquiring lock...")
+    logger.debug("acquiring lock...")
     try:
         lock.acquire(LOCK_WAIT_TIMEOUT)
     except AlreadyLocked:
-        logging.debug("lock already in place. quitting.")
+        logger.debug("lock already in place. quitting.")
         return
     except LockTimeout:
-        logging.debug("waiting for the lock timed out. quitting.")
+        logger.debug("waiting for the lock timed out. quitting.")
         return
-    logging.debug("acquired.")
+    logger.debug("acquired.")
     
     start_time = time.time()
     
@@ -77,28 +79,30 @@ def send_all():
             try:
                 if connection is None:
                     connection = get_connection(backend=EMAIL_BACKEND)
-                logging.info("sending message '%s' to %s" % (message.subject.encode("utf-8"), u", ".join(message.to_addresses).encode("utf-8")))
+                logger.info("sending message '%s' to %s" % (message.subject.encode("utf-8"), u", ".join(message.to_addresses).encode("utf-8")))
                 email = message.email
                 email.connection = connection
                 email.send()
                 MessageLog.objects.log(message, 1) # @@@ avoid using literal result code
                 message.delete()
                 sent += 1
-            except (socket_error, smtplib.SMTPSenderRefused, smtplib.SMTPRecipientsRefused, smtplib.SMTPAuthenticationError), err:
+            except (socket_error,
+                    smtplib.SMTPException,
+                    EOFError), err:
                 message.defer()
-                logging.info("message deferred due to failure: %s" % err)
+                logger.info("message deferred due to failure: %s" % err)
                 MessageLog.objects.log(message, 3, log_message=str(err)) # @@@ avoid using literal result code
                 deferred += 1
                 # Get new connection, it case the connection itself has an error.
                 connection = None
     finally:
-        logging.debug("releasing lock...")
+        logger.debug("releasing lock...")
         lock.release()
-        logging.debug("released.")
+        logger.debug("released.")
     
-    logging.info("")
-    logging.info("%s sent; %s deferred;" % (sent, deferred))
-    logging.info("done in %.2f seconds" % (time.time() - start_time))
+    logger.info("")
+    logger.info("%s sent; %s deferred;" % (sent, deferred))
+    logger.info("done in %.2f seconds" % (time.time() - start_time))
 
 def send_loop():
     """
@@ -108,6 +112,6 @@ def send_loop():
     
     while True:
         while not Message.objects.all():
-            logging.debug("sleeping for %s seconds before checking queue again" % EMPTY_QUEUE_SLEEP)
+            logger.debug("sleeping for %s seconds before checking queue again" % EMPTY_QUEUE_SLEEP)
             time.sleep(EMPTY_QUEUE_SLEEP)
         send_all()
