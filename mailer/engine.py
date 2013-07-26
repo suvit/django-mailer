@@ -100,9 +100,8 @@ def send_all():
         lock.release()
         logger.debug("released.")
     
-    logger.info("")
-    logger.info("%s sent; %s deferred;" % (sent, deferred))
-    logger.info("done in %.2f seconds" % (time.time() - start_time))
+    logger.info("%s sent; %s deferred; done in %.2f seconds",
+                sent, deferred, time.time() - start_time)
 
 def send_loop():
     """
